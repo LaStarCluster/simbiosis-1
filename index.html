@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simbiosis Valdiviana: La Red de Líquenes</title>
+    <!-- Tailwind CSS CDN for elegant minimalist interface -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030508;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1;
+        }
+        .neon-glow-cyan {
+            text-shadow: 0 0 10px rgba(45, 212, 191, 0.7), 0 0 20px rgba(45, 212, 191, 0.4);
+        }
+        .glass-panel {
+            background: rgba(8, 14, 23, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(45, 212, 191, 0.18);
+        }
+        .breath-ring {
+            transition: transform 0.1s linear, border-color 0.3s ease;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #2dd4bf;
+            box-shadow: 0 0 10px #2dd4bf;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-black text-slate-100 antialiased select-none">
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- UI Overlay for Desktop & Meta Quest 2D Fallback -->
+    <div id="ui-container" class="relative z-10 w-full h-full flex flex-col justify-between p-4 md:p-8 pointer-events-none">
+        
+        <!-- Top Bar: Title, Audio & VR Button -->
+        <header class="flex justify-between items-start w-full">
+            <div class="glass-panel p-4 rounded-2xl max-w-md pointer-events-auto shadow-2xl">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs uppercase tracking-widest text-teal-400 font-semibold">Selva Valdiviana XR</span>
+                </div>
+                <h1 class="text-xl md:text-2xl font-light tracking-wide text-white mt-1 neon-glow-cyan">
+                    Simbiosis Valdiviana
+                </h1>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                    Microcosmos bioluminiscente de líquenes y memoria ecológica en el sur de Chile.
+                </p>
+            </div>
+
+            <div class="flex items-center space-x-3 pointer-events-auto">
+                <!-- Procedural Audio Toggle -->
+                <button id="btn-audio" class="glass-panel px-4 py-2.5 rounded-xl text-xs tracking-wider flex items-center space-x-2 hover:border-teal-400 transition">
+                    <svg id="icon-sound-off" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                    <svg id="icon-sound-on" class="w-4 h-4 text-teal-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                    <span id="audio-label" class="text-slate-300">Activar Audio Bio</span>
+                </button>
+
+                <!-- VR Mode Button -->
+                <button id="btn-vr" class="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-black font-semibold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition transform hover:scale-105 active:scale-95 shadow-lg shadow-teal-500/20">
+                    Entrar a VR
+                </button>
+            </div>
+        </header>
+
+        <!-- Center Bottom: Interactive Breath & Timeline Controls -->
+        <footer class="w-full flex flex-col items-center max-w-2xl mx-auto space-y-4">
+            
+            <!-- Moment Description Card -->
+            <div class="glass-panel p-5 rounded-2xl w-full text-center pointer-events-auto">
+                <div class="flex items-center justify-between text-xs text-teal-400 font-mono mb-1">
+                    <span id="moment-tag">MOMENTO 1 DE 6</span>
+                    <span id="vr-hint" class="text-slate-500 hidden md:inline">Meta Quest 3: Gatillo para navegar & respirar</span>
+                </div>
+                <h2 id="moment-title" class="text-lg md:text-xl font-medium text-white mb-2">Selva Valdiviana & Líquenes Luminosos</h2>
+                <p id="moment-desc" class="text-xs md:text-sm text-slate-300 leading-relaxed font-light">
+                    Nos encontramos inmersos en la umbría noche lluviosa. Árboles ancestrales y rocas se iluminan con colonias de líquenes que destellan con ritmos bioeléctricos de color neón.
+                </p>
+
+                <!-- Navigation Buttons & Breath Trigger -->
+                <div class="mt-4 flex items-center justify-between gap-3 pt-3 border-t border-teal-500/20">
+                    <button id="btn-prev" class="px-4 py-2 rounded-xl text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">
+                        &larr; Anterior
+                    </button>
+
+                    <!-- Breathing interaction button -->
+                    <button id="btn-breath" class="flex-1 px-4 py-2 rounded-xl text-xs font-medium bg-teal-950/80 border border-teal-500/40 hover:border-teal-300 text-teal-300 flex items-center justify-center space-x-2 transition">
+                        <span id="breath-orb" class="w-2.5 h-2.5 rounded-full bg-teal-400 scale-100 transition-transform"></span>
+                        <span id="breath-text">Inhalar / Exhalar Vida</span>
+                    </button>
+
+                    <button id="btn-next" class="px-4 py-2 rounded-xl text-xs bg-teal-600 hover:bg-teal-500 text-black font-semibold transition">
+                        Siguiente &rarr;
+                    </button>
+                </div>
+
+                <!-- Timeline Scrubber (Active on Stages 4, 5 & 6) -->
+                <div id="timeline-container" class="mt-4 pt-2 flex items-center space-x-3 transition-opacity">
+                    <span class="text-[10px] text-teal-400/80 uppercase font-mono">Tiempo Eco:</span>
+                    <input id="timeline-slider" type="range" min="0" max="1" step="0.005" value="0" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400">
+                    <span id="timeline-epoch" class="text-[10px] text-emerald-400 font-mono min-w-[70px] text-right">Roca</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        /* Procedural Audio Engine (SimPlant & Spore aesthetic) */
+        class BioSynthesizer {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.masterGain = null;
+                this.filter = null;
+                this.droneOsc = null;
+                this.pulseInterval = null;
+                this.stageProgress = 0;
+            }
+
+            init() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+
+                // Master gain and filter
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+
+                this.filter = this.ctx.createBiquadFilter();
+                this.filter.type = 'lowpass';
+                this.filter.frequency.setValueAtTime(650, this.ctx.currentTime);
+                this.filter.Q.setValueAtTime(4.0, this.ctx.currentTime);
+
+                // Subtle organic reverb using simulated impulse response
+                this.convolver = this.ctx.createConvolver();
+                this.createReverbBuffer();
+
+                this.filter.connect(this.masterGain);
+                this.masterGain.connect(this.ctx.destination);
+                this.convolver.connect(this.masterGain);
+
+                // Deep fungal drone
+                this.startDrone();
+                this.startGenerativeMelody();
+                this.isPlaying = true;
+            }
+
+            createReverbBuffer() {
+                const rate = this.ctx.sampleRate;
+                const length = rate * 2.8;
+                const buffer = this.ctx.createBuffer(2, length, rate);
+                for (let c = 0; c < 2; c++) {
+                    const data = buffer.getChannelData(c);
+                    for (let i = 0; i < length; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.2);
+                    }
+                }
+                this.convolver.buffer = buffer;
+            }
+
+            startDrone() {
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(55, this.ctx.currentTime); // Low A
+
+                // LFO for breathing drone
+                const lfo = this.ctx.createOscillator();
+                lfo.frequency.setValueAtTime(0.18, this.ctx.currentTime);
+                const lfoGain = this.ctx.createGain();
+                lfoGain.gain.setValueAtTime(15, this.ctx.currentTime);
+
+                lfo.connect(osc.frequency);
+                oscGain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+                osc.connect(oscGain);
+                oscGain.connect(this.filter);
+
+                osc.start();
+                lfo.start();
+            }
+
+            // Organic SimPlant water/spore pings
+            playSporePing(frequency = 440, duration = 1.2, pan = 0) {
+                if (!this.isPlaying || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const panner = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(frequency, now);
+                osc.frequency.exponentialRampToValueAtTime(frequency * 0.6, now + duration);
+
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.12, now + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                if (panner) {
+                    panner.pan.setValueAtTime(pan, now);
+                    osc.connect(gain);
+                    gain.connect(panner);
+                    panner.connect(this.convolver);
+                    panner.connect(this.masterGain);
+                } else {
+                    osc.connect(gain);
+                    gain.connect(this.convolver);
+                    gain.connect(this.masterGain);
+                }
+
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            // Procedural arpeggio scale: Pentatonic Valdiviana
+            startGenerativeMelody() {
+                // Frequencies in Hz based on peaceful natural scale
+                const scale = [220, 261.63, 293.66, 329.63, 392.00, 440, 523.25, 587.33, 659.25, 783.99];
+                
+                const step = () => {
+                    if (this.isPlaying) {
+                        const noteIdx = Math.floor(Math.random() * scale.length);
+                        const freq = scale[noteIdx];
+                        const duration = 0.6 + Math.random() * 1.5;
+                        const pan = Math.sin(Date.now() * 0.001);
+                        this.playSporePing(freq, duration, pan);
+
+                        // Frequency density increases with ecological stage
+                        const delay = Math.max(200, 1400 - (this.stageProgress * 1000) + (Math.random() * 800));
+                        setTimeout(step, delay);
+                    }
+                };
+                step();
+            }
+
+            setEcologicalEvolution(progress) {
+                this.stageProgress = progress; // 0.0 to 1.0
+                if (this.filter && this.ctx) {
+                    // Open up filter cut-off as biodiversity expands
+                    const targetFreq = 400 + progress * 2400;
+                    this.filter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.4);
+                }
+            }
+
+            triggerBreathTone(isInhaling) {
+                if (!this.isPlaying || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                const startFreq = isInhaling ? 180 : 360;
+                const endFreq = isInhaling ? 360 : 180;
+                
+                osc.frequency.setValueAtTime(startFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(endFreq, now + 1.2);
+
+                gain.gain.setValueAtTime(0.01, now);
+                gain.gain.linearRampToValueAtTime(0.15, now + 0.4);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+                osc.connect(gain);
+                gain.connect(this.convolver);
+                gain.connect(this.masterGain);
+
+                osc.start(now);
+                osc.stop(now + 1.2);
+            }
+
+            toggle() {
+                if (!this.ctx) {
+                    this.init();
+                    return true;
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                    this.isPlaying = true;
+                    return true;
+                } else if (this.isPlaying) {
+                    this.ctx.suspend();
+                    this.isPlaying = false;
+                    return false;
+                } else {
+                    this.ctx.resume();
+                    this.isPlaying = true;
+                    return true;
+                }
+            }
+        }
+
+        const bioAudio = new BioSynthesizer();
+    </script>
+
+    <script>
+        /* Narrative Moments Information */
+        const MOMENTS = [
+            {
+                id: 1,
+                tag: "MOMENTO 1 DE 6",
+                title: "Selva Valdiviana & Líquenes Luminosos",
+                desc: "Inmersos en el bosque templado lluvioso. En la penumbra, troncos de alerce y rocas despiertan vestidos de líquenes bioluminiscentes que pulsan con tonos cian, esmeralda y violeta.",
+                allowTimeline: false
+            },
+            {
+                id: 2,
+                tag: "MOMENTO 2 DE 6",
+                title: "Ancestros & Disolución",
+                desc: "El bosque se disuelve en el vacío cósmico negro. La estructura se desintegra en partículas luminosas para revelar a los dos ancestros simbióticos: microalgas fotosintéticas y filamentos de hongo envolventes.",
+                allowTimeline: false
+            },
+            {
+                id: 3,
+                tag: "MOMENTO 3 DE 6",
+                title: "Interior del Liquen (Nivel Micro / Celular)",
+                desc: "Viajamos al corazón del talo. Las hifas fúngicas abrazan y encapsulan con ternura a las células algales, intercambiando azúcares y sales minerales en pulsos de energía celular.",
+                allowTimeline: false
+            },
+            {
+                id: 4,
+                tag: "MOMENTO 4 DE 6",
+                title: "Meteorización & Génesis del Suelo",
+                desc: "Regreso al plano exterior. Los líquenes colonizan la roca volcánica desnuda. En un viaje acelerado en el tiempo, sus ácidos rompen la piedra ancestral, creando el primer humus fértil.",
+                allowTimeline: true
+            },
+            {
+                id: 5,
+                tag: "MOMENTO 5 DE 6",
+                title: "Expansión, Respiración & Sucesión",
+                desc: "Interactúa con tu respiración o el gatillo VR. Al exhalar vida, el ecosistema avanza: roca → líquenes pioneros → musgos → helechos y nalcas → selva madura de alerce y canelo.",
+                allowTimeline: true
+            },
+            {
+                id: 6,
+                tag: "MOMENTO 6 DE 6",
+                title: "Red de Conexión & Contemplación",
+                desc: "Momento culminante. Todo el bosque valdiviano se revela como un único superorganismo interconectado por filamentos de luz y vibraciones que responden a cada latido.",
+                allowTimeline: true
+            }
+        ];
+
+        let currentMomentIndex = 0;
+        let timelineValue = 0.0;
+        let breathState = 0.0; // 0 to 1
+        let isBreathingIn = true;
+
+        /* Three.js Environment Setup */
+        const canvas = document.getElementById('webgl-canvas');
+        const renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            antialias: true,
+            alpha: false,
+            powerPreference: 'high-performance'
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        renderer.xr.enabled = true; // Meta Quest 3 WebXR device support
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020305);
+        scene.fog = new THREE.FogExp2(0x020305, 0.035);
+
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 100);
+        camera.position.set(0, 1.6, 3.2); // Typical VR eye level
+
+        // User rig for XR teleport / positioning
+        const userRig = new THREE.Group();
+        userRig.position.set(0, 0, 0);
+        userRig.add(camera);
+        scene.add(userRig);
+
+        // Ambient bioluminescent light
+        const ambientLight = new THREE.AmbientLight(0x061822, 1.5);
+        scene.add(ambientLight);
+
+        const coreLight = new THREE.PointLight(0x2dd4bf, 3, 20);
+        coreLight.position.set(0, 2.5, 0);
+        scene.add(coreLight);
+
+        
+        // Stage Containers
+        const stageGroups = [];
+        for (let i = 0; i < 6; i++) {
+            const grp = new THREE.Group();
+            grp.visible = (i === 0);
+            scene.add(grp);
+            stageGroups.push(grp);
+        }
+
+        // Texture generator for glowing spore particle
+        function createGlowParticleTexture() {
+            const size = 64;
+            const c = document.createElement('canvas');
+            c.width = size;
+            c.height = size;
+            const ctx = c.getContext('2d');
+            const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.2, 'rgba(45, 212, 191, 0.8)');
+            gradient.addColorStop(0.6, 'rgba(16, 185, 129, 0.2)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            const texture = new THREE.CanvasTexture(c);
+            return texture;
+        }
+        const particleTexture = createGlowParticleTexture();
+
+        // ----------------------------------------------------
+        // MOMENTO 1: Selva Valdiviana & Líquenes Luminosos
+        // ----------------------------------------------------
+        const m1Group = stageGroups[0];
+
+        // Forest floor & trees with glowing crustose & fruticose lichens
+        const trunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 8, 12, 12);
+        const trunkMat = new THREE.MeshStandardMaterial({
+            color: 0x0a1215,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+
+        // 8 Rainforest tree trunks around user
+        const treePositions = [
+            [-2.5, 2.5, -3.5], [2.8, 2.5, -4.0], [-3.8, 2.5, 0.5],
+            [3.2, 2.5, 0.8], [-1.8, 2.5, 3.2], [2.2, 2.5, 3.5],
+            [-4.5, 2.5, -2.0], [4.0, 2.5, -2.5]
+        ];
+
+        treePositions.forEach((pos, idx) => {
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.set(pos[0], pos[1], pos[2]);
+            trunk.rotation.x = (Math.random() - 0.5) * 0.1;
+            trunk.rotation.z = (Math.random() - 0.5) * 0.1;
+            m1Group.add(trunk);
+
+            // Glowing lichen patches on bark
+            const patchCount = 8;
+            for (let p = 0; p < patchCount; p++) {
+                const patchGeo = new THREE.RingGeometry(0.1, 0.35 + Math.random() * 0.2, 16);
+                const colorHex = (p % 3 === 0) ? 0x2dd4bf : (p % 3 === 1 ? 0x10b981 : 0xa855f7);
+                const patchMat = new THREE.MeshBasicMaterial({
+                    color: colorHex,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.85,
+                    blending: THREE.AdditiveBlending
+                });
+                const patch = new THREE.Mesh(patchGeo, patchMat);
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 0.42;
+                patch.position.set(
+                    pos[0] + Math.cos(angle) * radius,
+                    0.5 + Math.random() * 3.5,
+                    pos[2] + Math.sin(angle) * radius
+                );
+                patch.lookAt(pos[0], patch.position.y, pos[2]);
+                m1Group.add(patch);
+            }
+        });
+
+        // Mossy/Lichenous Rocks
+        const rockGeo = new THREE.DodecahedronGeometry(0.85, 2);
+        const rockMat = new THREE.MeshStandardMaterial({
+            color: 0x071114,
+            roughness: 0.95
+        });
+        const rock1 = new THREE.Mesh(rockGeo, rockMat);
+        rock1.position.set(0, 0.2, -1.8);
+        m1Group.add(rock1);
+
+        // Bioluminescent lichen foliage particles on rocks
+        const lichenPCount = 1200;
+        const lichenPGeo = new THREE.BufferGeometry();
+        const lichenPPos = new Float32Array(lichenPCount * 3);
+        const lichenPCol = new Float32Array(lichenPCount * 3);
+
+        for (let i = 0; i < lichenPCount; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1);
+            const r = 0.86 + Math.random() * 0.25;
+            lichenPPos[i * 3] = rock1.position.x + r * Math.sin(phi) * Math.cos(theta);
+            lichenPPos[i * 3 + 1] = rock1.position.y + Math.abs(r * Math.cos(phi)) * 0.8;
+            lichenPPos[i * 3 + 2] = rock1.position.z + r * Math.sin(phi) * Math.sin(theta);
+
+            // Neon cyan / emerald / violet
+            const choice = Math.random();
+            if (choice < 0.5) { // Cyan
+                lichenPCol[i * 3] = 0.18; lichenPCol[i * 3 + 1] = 0.83; lichenPCol[i * 3 + 2] = 0.75;
+            } else if (choice < 0.85) { // Emerald
+                lichenPCol[i * 3] = 0.06; lichenPCol[i * 3 + 1] = 0.72; lichenPCol[i * 3 + 2] = 0.51;
+            } else { // Violet
+                lichenPCol[i * 3] = 0.66; lichenPCol[i * 3 + 1] = 0.33; lichenPCol[i * 3 + 2] = 0.97;
+            }
+        }
+        lichenPGeo.setAttribute('position', new THREE.BufferAttribute(lichenPPos, 3));
+        lichenPGeo.setAttribute('color', new THREE.BufferAttribute(lichenPCol, 3));
+
+        const lichenPMat = new THREE.PointsMaterial({
+            size: 0.065,
+            map: particleTexture,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            transparent: true
+        });
+        const rockLichenPoints = new THREE.Points(lichenPGeo, lichenPMat);
+        m1Group.add(rockLichenPoints);
+
+        // Rainforest ambient spores floating
+        const sporeCount = 600;
+        const sporeGeo = new THREE.BufferGeometry();
+        const sporePos = new Float32Array(sporeCount * 3);
+        for (let i = 0; i < sporeCount; i++) {
+            sporePos[i * 3] = (Math.random() - 0.5) * 12;
+            sporePos[i * 3 + 1] = Math.random() * 6;
+            sporePos[i * 3 + 2] = (Math.random() - 0.5) * 12;
+        }
+        sporeGeo.setAttribute('position', new THREE.BufferAttribute(sporePos, 3));
+        const ambientSpores = new THREE.Points(sporeGeo, new THREE.PointsMaterial({
+            size: 0.04,
+            color: 0x38bdf8,
+            map: particleTexture,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+        }));
+        m1Group.add(ambientSpores);
+
+        // ----------------------------------------------------
+        // MOMENTO 2: Ancestros & Disolución
+        // ----------------------------------------------------
+        const m2Group = stageGroups[1];
+
+        // Photobiont Algae: glowing cyan emerald spheres
+        const algaeSpheres = [];
+        for (let a = 0; a < 7; a++) {
+            const sphereGeo = new THREE.SphereGeometry(0.24, 24, 24);
+            const sphereMat = new THREE.MeshBasicMaterial({
+                color: 0x10b981,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            const alga = new THREE.Mesh(sphereGeo, sphereMat);
+            const angle = (a / 7) * Math.PI * 2;
+            alga.position.set(Math.cos(angle) * 1.1, 1.6 + Math.sin(angle * 2) * 0.3, -1.5 + Math.sin(angle) * 0.9);
+            m2Group.add(alga);
+            algaeSpheres.push(alga);
+        }
+
+        // Mycobiont Fungal Filaments (Spore style organic tentacles/hyphae)
+        const hyphaeCurves = [];
+        for (let h = 0; h < 24; h++) {
+            const points = [];
+            const startX = (Math.random() - 0.5) * 3;
+            const startY = 0.5 + Math.random() * 2.5;
+            const startZ = -1.5 + (Math.random() - 0.5) * 3;
+            for (let pt = 0; pt < 8; pt++) {
+                points.push(new THREE.Vector3(
+                    startX + (Math.random() - 0.5) * (pt * 0.25),
+                    startY + (Math.random() - 0.5) * (pt * 0.25),
+                    startZ + (Math.random() - 0.5) * (pt * 0.25)
+                ));
+            }
+            const spline = new THREE.CatmullRomCurve3(points);
+            const tubeGeo = new THREE.TubeGeometry(spline, 32, 0.018, 6, false);
+            const tubeMat = new THREE.MeshBasicMaterial({
+                color: (h % 2 === 0) ? 0xa855f7 : 0xf59e0b,
+                transparent: true,
+                opacity: 0.75,
+                blending: THREE.AdditiveBlending
+            });
+            const hypha = new THREE.Mesh(tubeGeo, tubeMat);
+            m2Group.add(hypha);
+            hyphaeCurves.push(hypha);
+        }
+
+        // Dissolving particles representing the lichen matrix breaking down
+        const dissolveCount = 3500;
+        const dissolveGeo = new THREE.BufferGeometry();
+        const dissolvePos = new Float32Array(dissolveCount * 3);
+        const dissolveOrigins = new Float32Array(dissolveCount * 3);
+        for (let i = 0; i < dissolveCount; i++) {
+            const rx = (Math.random() - 0.5) * 2;
+            const ry = 1.6 + (Math.random() - 0.5) * 2;
+            const rz = -1.5 + (Math.random() - 0.5) * 2;
+            dissolveOrigins[i * 3] = rx;
+            dissolveOrigins[i * 3 + 1] = ry;
+            dissolveOrigins[i * 3 + 2] = rz;
+            dissolvePos[i * 3] = rx;
+            dissolvePos[i * 3 + 1] = ry;
+            dissolvePos[i * 3 + 2] = rz;
+        }
+        dissolveGeo.setAttribute('position', new THREE.BufferAttribute(dissolvePos, 3));
+        const dissolveMat = new THREE.PointsMaterial({
+            size: 0.05,
+            color: 0x2dd4bf,
+            map: particleTexture,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const dissolvePoints = new THREE.Points(dissolveGeo, dissolveMat);
+        m2Group.add(dissolvePoints);
+
+        // ----------------------------------------------------
+        // MOMENTO 3: Interior del Liquen (Nivel Micro / Celular)
+        // ----------------------------------------------------
+        const m3Group = stageGroups[2];
+
+        // Outer translucent cellular membrane enclosure
+        const innerChamberGeo = new THREE.IcosahedronGeometry(4, 3);
+        const innerChamberMat = new THREE.MeshBasicMaterial({
+            color: 0x064e3b,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.18
+        });
+        const innerChamber = new THREE.Mesh(innerChamberGeo, innerChamberMat);
+        innerChamber.position.set(0, 1.6, 0);
+        m3Group.add(innerChamber);
+
+        // Central symbiotic micro-core: Photobiont chloroplast cluster
+        const centralCoreGeo = new THREE.SphereGeometry(0.8, 32, 32);
+        const centralCoreMat = new THREE.MeshStandardMaterial({
+            color: 0x059669,
+            roughness: 0.3,
+            metalness: 0.2,
+            emissive: 0x10b981,
+            emissiveIntensity: 0.6
+        });
+        const centralCell = new THREE.Mesh(centralCoreGeo, centralCoreMat);
+        centralCell.position.set(0, 1.6, -1.2);
+        m3Group.add(centralCell);
+
+        // Encapsulating mycelial sheath surrounding the cell
+        const sheathRibbons = [];
+        for (let s = 0; s < 12; s++) {
+            const torusGeo = new THREE.TorusGeometry(0.95 + s * 0.04, 0.025, 8, 48);
+            const torusMat = new THREE.MeshBasicMaterial({
+                color: (s % 2 === 0) ? 0xa855f7 : 0xec4899,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending
+            });
+            const sheath = new THREE.Mesh(torusGeo, torusMat);
+            sheath.position.copy(centralCell.position);
+            sheath.rotation.x = Math.random() * Math.PI;
+            sheath.rotation.y = Math.random() * Math.PI;
+            m3Group.add(sheath);
+            sheathRibbons.push(sheath);
+        }
+
+        // Metabolic flow particles orbiting and transferring between cell and fungus
+        const flowCount = 1500;
+        const flowGeo = new THREE.BufferGeometry();
+        const flowPos = new Float32Array(flowCount * 3);
+        for (let i = 0; i < flowCount; i++) {
+            const rad = 0.8 + Math.random() * 1.8;
+            const th = Math.random() * Math.PI * 2;
+            const ph = Math.acos(Math.random() * 2 - 1);
+            flowPos[i * 3] = centralCell.position.x + rad * Math.sin(ph) * Math.cos(th);
+            flowPos[i * 3 + 1] = centralCell.position.y + rad * Math.sin(ph) * Math.sin(th);
+            flowPos[i * 3 + 2] = centralCell.position.z + rad * Math.cos(ph);
+        }
+        flowGeo.setAttribute('position', new THREE.BufferAttribute(flowPos, 3));
+        const flowMat = new THREE.PointsMaterial({
+            size: 0.04,
+            color: 0x38bdf8,
+            map: particleTexture,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+        });
+        const flowPoints = new THREE.Points(flowGeo, flowMat);
+        m3Group.add(flowPoints);
+
+        // ----------------------------------------------------
+        // MOMENTO 4: Meteorización y Génesis del Suelo (Time Travel)
+        // ----------------------------------------------------
+        const m4Group = stageGroups[3];
+
+        // Barren volcanic rock cliff
+        const cliffGeo = new THREE.CylinderGeometry(2.4, 3.2, 2.2, 18, 8);
+        const cliffMat = new THREE.MeshStandardMaterial({
+            color: 0x181e24,
+            roughness: 0.95,
+            metalness: 0.05,
+            flatShading: true
+        });
+        const volcanicRock = new THREE.Mesh(cliffGeo, cliffMat);
+        volcanicRock.position.set(0, 0, -2.5);
+        m4Group.add(volcanicRock);
+
+        // Glowing chemical fracture network (lichen acidic penetration)
+        const fractureLines = new THREE.Group();
+        for (let f = 0; f < 18; f++) {
+            const pts = [];
+            let fx = (Math.random() - 0.5) * 2;
+            let fy = 1.0;
+            let fz = -2.5 + (Math.random() - 0.5) * 2;
+            for (let step = 0; step < 7; step++) {
+                pts.push(new THREE.Vector3(fx, fy, fz));
+                fx += (Math.random() - 0.5) * 0.4;
+                fy -= 0.18 + Math.random() * 0.1;
+                fz += (Math.random() - 0.5) * 0.4;
+            }
+            const fGeo = new THREE.BufferGeometry().setFromPoints(pts);
+            const fMat = new THREE.LineBasicMaterial({
+                color: 0x2dd4bf,
+                transparent: true,
+                opacity: 0.85,
+                linewidth: 2
+            });
+            const line = new THREE.Line(fGeo, fMat);
+            fractureLines.add(line);
+        }
+        m4Group.add(fractureLines);
+
+        // Ground soil genesis layer (dark organic humus forming dynamically)
+        const soilGeo = new THREE.PlaneGeometry(10, 10, 24, 24);
+        soilGeo.rotateX(-Math.PI / 2);
+        const soilMat = new THREE.MeshStandardMaterial({
+            color: 0x1f2937,
+            roughness: 0.9
+        });
+        const soilPlane = new THREE.Mesh(soilGeo, soilMat);
+        soilPlane.position.set(0, -0.05, -2);
+        m4Group.add(soilPlane);
+
+        // ----------------------------------------------------
+        // MOMENTO 5: Expansión, Respiración & Sucesión Ecológica
+        // ----------------------------------------------------
+        const m5Group = stageGroups[4];
+
+        // Ecological stages containers inside Momento 5
+        const ecoLayers = {
+            crustose: new THREE.Group(), // Crustose Lichens
+            moss: new THREE.Group(),     // Mosses & Pioneer liverworts
+            ferns: new THREE.Group(),    // Ferns / Nalcas
+            canelo: new THREE.Group(),   // Young temperate forest
+            alerce: new THREE.Group()    // Ancient Alerce & mature canopy
+        };
+        Object.values(ecoLayers).forEach(layer => m5Group.add(layer));
+
+        // 1. Crustose lichens
+        const crustoseCount = 800;
+        const crustGeo = new THREE.BufferGeometry();
+        const crustPos = new Float32Array(crustoseCount * 3);
+        for (let i = 0; i < crustoseCount; i++) {
+            const rad = 0.5 + Math.random() * 3.5;
+            const ang = Math.random() * Math.PI * 2;
+            crustPos[i * 3] = Math.cos(ang) * rad;
+            crustPos[i * 3 + 1] = 0.02 + Math.random() * 0.1;
+            crustPos[i * 3 + 2] = -1.5 + Math.sin(ang) * rad;
+        }
+        crustGeo.setAttribute('position', new THREE.BufferAttribute(crustPos, 3));
+        const crustPoints = new THREE.Points(crustGeo, new THREE.PointsMaterial({
+            size: 0.08,
+            color: 0x14b8a6,
+            map: particleTexture,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+        }));
+        ecoLayers.crustose.add(crustPoints);
+
+        // 2. Mosses (dense green tufts)
+        for (let m = 0; m < 35; m++) {
+            const mossMesh = new THREE.Mesh(
+                new THREE.ConeGeometry(0.18, 0.35, 6),
+                new THREE.MeshBasicMaterial({ color: 0x10b981, wireframe: true })
+            );
+            const ang = Math.random() * Math.PI * 2;
+            const r = 0.8 + Math.random() * 3.0;
+            mossMesh.position.set(Math.cos(ang) * r, 0.15, -1.5 + Math.sin(ang) * r);
+            mossMesh.rotation.y = Math.random() * Math.PI;
+            ecoLayers.moss.add(mossMesh);
+        }
+
+        // 3. Ferns / Nalcas (Broad Valdivian architectural leaves)
+        for (let f = 0; f < 14; f++) {
+            const fernCluster = new THREE.Group();
+            for (let leaf = 0; leaf < 5; leaf++) {
+                const leafGeo = new THREE.CylinderGeometry(0.01, 0.28, 1.2, 5);
+                leafGeo.rotateZ(0.6 + leaf * 0.2);
+                const leafMesh = new THREE.Mesh(leafGeo, new THREE.MeshStandardMaterial({
+                    color: 0x059669,
+                    wireframe: true
+                }));
+                leafMesh.rotation.y = (leaf / 5) * Math.PI * 2;
+                fernCluster.add(leafMesh);
+            }
+            const ang = Math.random() * Math.PI * 2;
+            const r = 1.4 + Math.random() * 2.8;
+            fernCluster.position.set(Math.cos(ang) * r, 0.4, -1.5 + Math.sin(ang) * r);
+            ecoLayers.ferns.add(fernCluster);
+        }
+
+        // 4. Young forest: Canelo (Drimys winteri sacred Chilean tree silhouettes)
+        for (let c = 0; c < 6; c++) {
+            const canelo = new THREE.Group();
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.08, 0.16, 2.5, 8),
+                new THREE.MeshBasicMaterial({ color: 0x064e3b, wireframe: true })
+            );
+            trunk.position.y = 1.25;
+            const crown = new THREE.Mesh(
+                new THREE.ConeGeometry(0.9, 1.8, 8),
+                new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true })
+            );
+            crown.position.y = 2.4;
+            canelo.add(trunk, crown);
+            const ang = (c / 6) * Math.PI * 2 + 0.3;
+            const r = 2.8 + Math.random() * 1.5;
+            canelo.position.set(Math.cos(ang) * r, 0, -1.5 + Math.sin(ang) * r);
+            ecoLayers.canelo.add(canelo);
+        }
+
+        // 5. Mature Alerce (Fitzroya cupressoides: towering sacred giant conifers)
+        for (let a = 0; a < 5; a++) {
+            const alerce = new THREE.Group();
+            const bigTrunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.6, 6.5, 10),
+                new THREE.MeshBasicMaterial({ color: 0xa855f7, wireframe: true })
+            );
+            bigTrunk.position.y = 3.25;
+            const bigCrown = new THREE.Mesh(
+                new THREE.ConeGeometry(1.5, 3.8, 10),
+                new THREE.MeshBasicMaterial({ color: 0x2dd4bf, wireframe: true })
+            );
+            bigCrown.position.y = 5.2;
+            alerce.add(bigTrunk, bigCrown);
+            const ang = (a / 5) * Math.PI * 2 + 0.9;
+            const r = 3.8 + Math.random() * 2.0;
+            alerce.position.set(Math.cos(ang) * r, 0, -1.5 + Math.sin(ang) * r);
+            ecoLayers.alerce.add(alerce);
+        }
+
+        // ----------------------------------------------------
+        // MOMENTO 6: Red de Conexión & Contemplación
+        // ----------------------------------------------------
+        const m6Group = stageGroups[5];
+
+        // Giant interconnected network of light nodes and pulsating filaments
+        const netNodeCount = 75;
+        const netNodes = [];
+        const nodePositions = [];
+
+        for (let n = 0; n < netNodeCount; n++) {
+            const pos = new THREE.Vector3(
+                (Math.random() - 0.5) * 11,
+                0.2 + Math.random() * 4.8,
+                -1.5 + (Math.random() - 0.5) * 11
+            );
+            nodePositions.push(pos);
+
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.06, 12, 12),
+                new THREE.MeshBasicMaterial({
+                    color: (n % 3 === 0) ? 0x2dd4bf : (n % 3 === 1 ? 0x10b981 : 0xa855f7),
+                    blending: THREE.AdditiveBlending
+                })
+            );
+            sphere.position.copy(pos);
+            m6Group.add(sphere);
+            netNodes.push(sphere);
+        }
+
+        // Connecting synchronic bio-lines
+        const bioLinesGroup = new THREE.Group();
+        for (let i = 0; i < netNodeCount; i++) {
+            for (let j = i + 1; j < netNodeCount; j++) {
+                const dist = nodePositions[i].distanceTo(nodePositions[j]);
+                if (dist < 2.6) {
+                    const lGeo = new THREE.BufferGeometry().setFromPoints([nodePositions[i], nodePositions[j]]);
+                    const lMat = new THREE.LineBasicMaterial({
+                        color: 0x14b8a6,
+                        transparent: true,
+                        opacity: 0.45,
+                        blending: THREE.AdditiveBlending
+                    });
+                    const lMesh = new THREE.Line(lGeo, lMat);
+                    bioLinesGroup.add(lMesh);
+                }
+            }
+        }
+        m6Group.add(bioLinesGroup);
+
+        // Ambient breathing ring in space
+        const cosmicRingGeo = new THREE.TorusGeometry(3.6, 0.03, 16, 96);
+        const cosmicRingMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        const cosmicRing = new THREE.Mesh(cosmicRingGeo, cosmicRingMat);
+        cosmicRing.rotation.x = Math.PI / 2;
+        cosmicRing.position.set(0, 0.1, -1.5);
+        m6Group.add(cosmicRing);
+
+        
+        // VR Controllers Setup
+        const controller1 = renderer.xr.getController(0);
+        const controller2 = renderer.xr.getController(1);
+        scene.add(controller1);
+        scene.add(controller2);
+
+        // Controller pointers (lasers / bioluminescent tendrils)
+        function buildControllerPointer() {
+            const geom = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -2.5)
+            ]);
+            const mat = new THREE.LineBasicMaterial({
+                color: 0x2dd4bf,
+                transparent: true,
+                opacity: 0.65,
+                blending: THREE.AdditiveBlending
+            });
+            return new THREE.Line(geom, mat);
+        }
+
+        const pointer1 = buildControllerPointer();
+        controller1.add(pointer1);
+        const pointer2 = buildControllerPointer();
+        controller2.add(pointer2);
+
+        // Quest 3 Input Triggers: Select to advance, squeeze/trigger to fast-forward time or breathe
+        let triggerPressed = false;
+        
+        function onVRSelectStart() {
+            triggerPressed = true;
+            // Advance time or trigger breathing cycle
+            isBreathingIn = !isBreathingIn;
+            bioAudio.triggerBreathTone(isBreathingIn);
+            if (MOMENTS[currentMomentIndex].allowTimeline) {
+                timelineValue = (timelineValue + 0.15) % 1.0;
+                applyTimelineScrub(timelineValue);
+            }
+        }
+        function onVRSelectEnd() {
+            triggerPressed = false;
+        }
+
+        controller1.addEventListener('selectstart', onVRSelectStart);
+        controller1.addEventListener('selectend', onVRSelectEnd);
+        controller2.addEventListener('selectstart', onVRSelectStart);
+        controller2.addEventListener('selectend', onVRSelectEnd);
+
+        // Quest 3 Grip button to cycle next moment
+        function onVRGrip() {
+            goToMoment((currentMomentIndex + 1) % MOMENTS.length);
+        }
+        controller1.addEventListener('squeezestart', onVRGrip);
+        controller2.addEventListener('squeezestart', onVRGrip);
+
+        
+        function applyTimelineScrub(val) {
+            timelineValue = Math.min(1.0, Math.max(0.0, val));
+            document.getElementById('timeline-slider').value = timelineValue;
+            
+            // Audio response
+            bioAudio.setEcologicalEvolution(timelineValue);
+
+            const epochLabel = document.getElementById('timeline-epoch');
+
+            // Momento 4 Logic (Acidic rock weathering & soil accumulation)
+            if (currentMomentIndex === 3) {
+                fractureLines.scale.set(1 + timelineValue * 0.8, 1 + timelineValue * 0.8, 1 + timelineValue * 0.8);
+                soilPlane.scale.set(1 + timelineValue * 2.0, 1, 1 + timelineValue * 2.0);
+                volcanicRock.rotation.y = timelineValue * 0.8;
+                epochLabel.innerText = `${Math.round(timelineValue * 1000)} Años`;
+            }
+
+            // Momento 5 Logic (Sequential ecological stages)
+            if (currentMomentIndex === 4) {
+                // Sucesión: Roca desnuda -> Líquenes -> Musgos -> Helechos -> Bosque Joven -> Selva Madura
+                ecoLayers.crustose.visible = timelineValue >= 0.05;
+                ecoLayers.moss.visible = timelineValue >= 0.22;
+                ecoLayers.ferns.visible = timelineValue >= 0.44;
+                ecoLayers.canelo.visible = timelineValue >= 0.66;
+                ecoLayers.alerce.visible = timelineValue >= 0.85;
+
+                // Scale foliage growth
+                ecoLayers.crustose.scale.setScalar(Math.min(1, timelineValue / 0.2 + 0.2));
+                ecoLayers.moss.scale.setScalar(Math.max(0.001, (timelineValue - 0.2) / 0.3));
+                ecoLayers.ferns.scale.setScalar(Math.max(0.001, (timelineValue - 0.4) / 0.3));
+                ecoLayers.canelo.scale.setScalar(Math.max(0.001, (timelineValue - 0.6) / 0.3));
+                ecoLayers.alerce.scale.setScalar(Math.max(0.001, (timelineValue - 0.8) / 0.2));
+
+                if (timelineValue < 0.2) epochLabel.innerText = "Líquenes";
+                else if (timelineValue < 0.45) epochLabel.innerText = "Musgos";
+                else if (timelineValue < 0.68) epochLabel.innerText = "Helechos";
+                else if (timelineValue < 0.88) epochLabel.innerText = "Bosque Joven";
+                else epochLabel.innerText = "Selva Madura";
+            }
+
+            // Momento 6 Logic (Global Resonance Web)
+            if (currentMomentIndex === 5) {
+                bioLinesGroup.scale.setScalar(0.8 + timelineValue * 0.4);
+                epochLabel.innerText = "Resonancia";
+            }
+        }
+
+        
+        function goToMoment(index) {
+            if (index < 0 || index >= MOMENTS.length) return;
+            currentMomentIndex = index;
+
+            // Toggle 3D groups visibility
+            stageGroups.forEach((group, idx) => {
+                group.visible = (idx === currentMomentIndex);
+            });
+
+            // Update UI
+            const data = MOMENTS[currentMomentIndex];
+            document.getElementById('moment-tag').innerText = data.tag;
+            document.getElementById('moment-title').innerText = data.title;
+            document.getElementById('moment-desc').innerText = data.desc;
+
+            const timelineCont = document.getElementById('timeline-container');
+            if (data.allowTimeline) {
+                timelineCont.style.opacity = '1';
+                timelineCont.style.pointerEvents = 'auto';
+            } else {
+                timelineCont.style.opacity = '0.25';
+                timelineCont.style.pointerEvents = 'none';
+            }
+
+            // Play transition harmonic ping
+            bioAudio.playSporePing(330 + currentMomentIndex * 80, 1.8, 0);
+        }
+
+        
+        // Navigation Buttons
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            goToMoment((currentMomentIndex - 1 + MOMENTS.length) % MOMENTS.length);
+        });
+
+        document.getElementById('btn-next').addEventListener('click', () => {
+            goToMoment((currentMomentIndex + 1) % MOMENTS.length);
+        });
+
+        // Breathing mechanic button
+        const breathBtn = document.getElementById('btn-breath');
+        const breathOrb = document.getElementById('breath-orb');
+        const breathText = document.getElementById('breath-text');
+
+        breathBtn.addEventListener('click', () => {
+            isBreathingIn = !isBreathingIn;
+            breathOrb.style.transform = isBreathingIn ? 'scale(1.8)' : 'scale(1.0)';
+            breathText.innerText = isBreathingIn ? 'Inhalando Vida...' : 'Exhalando Vida...';
+            bioAudio.triggerBreathTone(isBreathingIn);
+
+            // In moments 4 and 5, breathing pushes the ecological timeline forward
+            if (MOMENTS[currentMomentIndex].allowTimeline) {
+                timelineValue = (timelineValue + 0.12) % 1.0;
+                applyTimelineScrub(timelineValue);
+            }
+        });
+
+        // Slider scrubber
+        const timelineSlider = document.getElementById('timeline-slider');
+        timelineSlider.addEventListener('input', (e) => {
+            applyTimelineScrub(parseFloat(e.target.value));
+        });
+
+        // Audio Toggle
+        const audioBtn = document.getElementById('btn-audio');
+        const soundOffIcon = document.getElementById('icon-sound-off');
+        const soundOnIcon = document.getElementById('icon-sound-on');
+        const audioLabel = document.getElementById('audio-label');
+
+        audioBtn.addEventListener('click', () => {
+            const isLive = bioAudio.toggle();
+            if (isLive) {
+                soundOffIcon.classList.add('hidden');
+                soundOnIcon.classList.remove('hidden');
+                audioLabel.innerText = "Audio Bio Activo";
+                audioLabel.classList.add('text-teal-300');
+            } else {
+                soundOffIcon.classList.remove('hidden');
+                soundOnIcon.classList.add('hidden');
+                audioLabel.innerText = "Activar Audio Bio";
+                audioLabel.classList.remove('text-teal-300');
+            }
+        });
+
+        // WebXR VR Button Integration
+        const vrBtn = document.getElementById('btn-vr');
+        if ('xr' in navigator) {
+            navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                if (supported) {
+                    vrBtn.addEventListener('click', async () => {
+                        if (!renderer.xr.isPresenting) {
+                            bioAudio.toggle(); // Enable sound on user gesture
+                            const session = await navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            });
+                            renderer.xr.setSession(session);
+                            vrBtn.innerText = "Salir de VR";
+                            document.getElementById('vr-hint').classList.remove('hidden');
+                        } else {
+                            renderer.xr.getSession().end();
+                            vrBtn.innerText = "Entrar a VR";
+                        }
+                    });
+                } else {
+                    vrBtn.innerText = "VR No Detectado";
+                    vrBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            });
+        } else {
+            vrBtn.innerText = "WebXR Inactivo";
+            vrBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        // Mouse drag look navigation for desktop browsers
+        let isMouseDown = false;
+        let prevMouseX = 0;
+        let prevMouseY = 0;
+        let lon = 0, lat = 0;
+
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#ui-container') && !e.target.matches('#webgl-canvas')) return;
+            isMouseDown = true;
+            prevMouseX = e.clientX;
+            prevMouseY = e.clientY;
+        });
+
+        window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isMouseDown || renderer.xr.isPresenting) return;
+            const deltaX = e.clientX - prevMouseX;
+            const deltaY = e.clientY - prevMouseY;
+            prevMouseX = e.clientX;
+            prevMouseY = e.clientY;
+
+            lon -= deltaX * 0.15;
+            lat = Math.max(-85, Math.min(85, lat + deltaY * 0.15));
+
+            const phi = THREE.MathUtils.degToRad(90 - lat);
+            const theta = THREE.MathUtils.degToRad(lon);
+
+            camera.target = new THREE.Vector3(
+                camera.position.x + 100 * Math.sin(phi) * Math.cos(theta),
+                camera.position.y + 100 * Math.cos(phi),
+                camera.position.z + 100 * Math.sin(phi) * Math.sin(theta)
+            );
+            camera.lookAt(camera.target);
+        });
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        
+        const clock = new THREE.Clock();
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render() {
+            const time = clock.getElapsedTime();
+            const delta = clock.getDelta();
+
+            // Continuous breathing simulation
+            breathState = (Math.sin(time * 1.5) + 1) * 0.5;
+
+            // 1. Momento 1 Animation: Spores drifting & bioluminescent patch oscillation
+            if (currentMomentIndex === 0) {
+                ambientSpores.rotation.y = time * 0.03;
+                rockLichenPoints.rotation.y = Math.sin(time * 0.2) * 0.04;
+                const positions = sporeGeo.attributes.position.array;
+                for (let i = 1; i < sporeCount * 3; i += 3) {
+                    positions[i] += Math.sin(time + positions[i]) * 0.002;
+                    if (positions[i] > 6) positions[i] = 0.1;
+                }
+                sporeGeo.attributes.position.needsUpdate = true;
+            }
+
+            // 2. Momento 2 Animation: Particle dissolution & algae floating
+            if (currentMomentIndex === 1) {
+                const positions = dissolveGeo.attributes.position.array;
+                for (let i = 0; i < dissolveCount; i++) {
+                    const idx = i * 3;
+                    const origX = dissolveOrigins[idx];
+                    const origY = dissolveOrigins[idx + 1];
+                    const origZ = dissolveOrigins[idx + 2];
+                    const spread = Math.sin(time * 0.8 + i) * 0.45;
+                    positions[idx] = origX + Math.cos(time + i) * spread;
+                    positions[idx + 1] = origY + Math.sin(time * 0.5 + i) * 0.3;
+                    positions[idx + 2] = origZ + Math.sin(time + i) * spread;
+                }
+                dissolveGeo.attributes.position.needsUpdate = true;
+
+                algaeSpheres.forEach((alga, idx) => {
+                    alga.rotation.y = time * 0.5 + idx;
+                    alga.position.y += Math.sin(time * 2 + idx) * 0.0015;
+                });
+            }
+
+            // 3. Momento 3 Animation: Cellular membrane pulsating & metabolic energy transfer
+            if (currentMomentIndex === 2) {
+                centralCell.scale.setScalar(1.0 + Math.sin(time * 2.2) * 0.07);
+                sheathRibbons.forEach((s, idx) => {
+                    s.rotation.z += 0.005 * (idx % 2 === 0 ? 1 : -1);
+                    s.rotation.x += 0.003;
+                });
+                flowPoints.rotation.y = time * 0.35;
+                flowPoints.rotation.x = Math.sin(time * 0.2) * 0.2;
+            }
+
+            // 4. Momento 4 Animation: Acidic glowing fissures
+            if (currentMomentIndex === 3) {
+                fractureLines.children.forEach((line, idx) => {
+                    line.material.opacity = 0.4 + Math.sin(time * 3 + idx) * 0.4;
+                });
+            }
+
+            // 5. Momento 5 Animation: Gentle wind sway in rainforest canopy
+            if (currentMomentIndex === 4) {
+                ecoLayers.canelo.children.forEach((c, idx) => {
+                    c.rotation.z = Math.sin(time * 1.5 + idx) * 0.03;
+                });
+                ecoLayers.alerce.children.forEach((a, idx) => {
+                    a.rotation.x = Math.cos(time * 1.2 + idx) * 0.02;
+                });
+            }
+
+            // 6. Momento 6 Animation: Neural light lattice glowing pulses
+            if (currentMomentIndex === 5) {
+                netNodes.forEach((node, idx) => {
+                    const scalePulse = 1.0 + Math.sin(time * 2.5 + idx * 0.5) * 0.45;
+                    node.scale.setScalar(scalePulse);
+                });
+                cosmicRing.rotation.z = time * 0.08;
+                cosmicRing.scale.setScalar(1.0 + Math.sin(time * 0.8) * 0.06);
+            }
+
+            // Render scene via standard camera or WebXR device pose
+            renderer.render(scene, camera);
+        }
+
+        // Initialize when window is ready
+        window.onload = () => {
+            goToMoment(0);
+            animate();
+        };
+    </script>
+</body>
+</html>
